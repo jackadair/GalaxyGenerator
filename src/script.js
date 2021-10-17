@@ -67,26 +67,6 @@ const renderer = new THREE.WebGLRenderer({
 renderer.setSize(sizes.width, sizes.height);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-/**
- * Animate
- */
-const clock = new THREE.Clock();
-
-const tick = () => {
-  const elapsedTime = clock.getElapsedTime();
-
-  // Update controls
-  controls.update();
-
-  // Render
-  renderer.render(scene, camera);
-
-  // Call tick again on the next frame
-  window.requestAnimationFrame(tick);
-};
-
-tick();
-
 //Galaxy params
 const parameters = {};
 parameters.count = 100000;
@@ -116,6 +96,8 @@ const generateGalaxy = () => {
 
   const positions = new Float32Array(parameters.count * 3);
   const colors = new Float32Array(parameters.count * 3);
+  const scales = new Float32Array(parameters.count * 1);
+  const randomness = new Float32Array(parameters.count * 3)
 
   for (let i = 0; i < parameters.count; i++) {
     const i3 = i * 3;
@@ -141,9 +123,13 @@ const generateGalaxy = () => {
       parameters.randomness *
       radius;
 
-    positions[i3] = Math.cos(branchAngle + spinAngle) * radius + randomX;
-    positions[i3 + 1] = randomY;
-    positions[i3 + 2] = Math.sin(branchAngle + spinAngle) * radius + randomZ;
+    positions[i3] = Math.cos(branchAngle + spinAngle) * radius;
+    positions[i3 + 1] = 0
+    positions[i3 + 2] = Math.sin(branchAngle + spinAngle) * radius;
+
+    randomness[i3    ] = randomX
+    randomness[i3 + 1] = randomY
+    randomness[i3 + 2] = randomZ
 
     const colorInside = new THREE.Color(parameters.insideColor);
     const colorOutside = new THREE.Color(parameters.outsideColor);
@@ -153,16 +139,24 @@ const generateGalaxy = () => {
     colors[i3] = mixedColor.r;
     colors[i3 + 1] = mixedColor.g;
     colors[i3 + 2] = mixedColor.b;
+
+    scales[i] = Math.random();
   }
 
   geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute("aRandomness", new THREE.BufferAttribute(randomness, 3))
   geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  geometry.setAttribute("aScale", new THREE.BufferAttribute(scales, 1));
 
   //Material
   material = new THREE.ShaderMaterial({
     depthWrite: false,
     blending: THREE.AdditiveBlending,
     vertexColors: true,
+    uniforms: {
+      uTime: { value: 0 },
+      uSize: { value: 30 * renderer.getPixelRatio() }
+    },
     vertexShader: galaxyVertexShader,
     fragmentShader: galaxyFragmentShader,
   });
@@ -172,6 +166,32 @@ const generateGalaxy = () => {
 
   scene.add(points);
 };
+
+generateGalaxy();
+
+/**
+ * Animate
+ */
+const clock = new THREE.Clock();
+
+const tick = () => {
+  const elapsedTime = clock.getElapsedTime();
+
+  //Update material
+  material.uniforms.uTime.value = elapsedTime;
+
+  // Update controls
+  controls.update();
+
+  // Render
+  renderer.render(scene, camera);
+
+  // Call tick again on the next frame
+  window.requestAnimationFrame(tick);
+  
+};
+
+tick();
 
 //Debug GUI
 gui
@@ -224,5 +244,3 @@ gui
 
 gui.addColor(parameters, "insideColor").onFinishChange(generateGalaxy);
 gui.addColor(parameters, "outsideColor").onFinishChange(generateGalaxy);
-
-generateGalaxy();
